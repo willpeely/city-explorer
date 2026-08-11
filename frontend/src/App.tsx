@@ -1,8 +1,12 @@
 import './App.css'
+import Map from './components/Map'
 
 function App() {
   return (
-    <h1>City Explorer</h1>
+    <main>
+      <Map />
+    </main>
+    
   )
 }
 
