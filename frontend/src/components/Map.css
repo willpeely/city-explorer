@@ -1,22 +1,101 @@
-
 .map-wrapper {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+}
+
+.map-controls {
+    width: 20%;
+    height: 100vh;
+
+    padding: 20px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: white;
+    box-sizing: border-box;
+    gap: 20px;
+}
+
+
+.category-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.category-title {
+    margin-bottom: 10px;
+}
+
+.category-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+
+.category-button {
+    padding: 8px 14px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    background: white;
+    color: #4b5563;
+
+    font-weight: 500;
+
+    cursor: pointer;
+}
+
+
+.category-button:hover {
+    background: #e5e6e9;
+    border-color: #9ca3af;
+}
+
+
+.category-button.selected {
+    background: #111827;
+    border-color: #111827;
+    color: white;
 }
 
 .map {
-    height: 80vh;
-    width: 50%;
+    width: 60%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+    align-items: end;
 }
-
 
 .find-places-button {
-    position: absolute;
-    top: 20px;
-    right: 20px;
+    width: 30%;
+    margin: 20px;
     z-index: 1000;
+
+    padding: 10px 16px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #111827;
+    color: white;
+
+    font-size: 1.2rem;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
+
+.trip-panel {
+    width: 20%;
+    padding: 20px;
+}
+

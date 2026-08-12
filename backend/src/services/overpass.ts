@@ -2,11 +2,12 @@ import { categories, type PlaceCategory } from '../../../shared/data/categories'
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-type Place = {
+export type Place = {
     id: number;
     name: string;
     lat: number;
     lon: number;
+    category: string;
 };
 
 function findCategory(value: string): PlaceCategory | undefined {
@@ -72,6 +73,7 @@ export async function getPlaces(
         id: place.id,
         name: place.tags?.name ?? 'Unnamed place',
         lat: place.lat,
-        lon: place.lon
+        lon: place.lon,
+        category: category
     }));
 }

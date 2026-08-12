@@ -20,6 +20,7 @@ type Place = {
     name: string;
     lat: number;
     lon: number;
+    category: string;
 };
 
 function FindPlacesButton({
@@ -29,6 +30,7 @@ function FindPlacesButton({
     onFind: (map: LeafletMap) => void;
     loading: boolean;
 }) {
+
     const map = useMap();
 
     return (
@@ -43,11 +45,15 @@ function FindPlacesButton({
 }
 
 function Map() {
+
     const [places, setPlaces] = useState<Place[]>([]);
+    const [trip, setTrip] = useState<Place[]>([]);
+
     const [loading, setLoading] = useState(false);
     const [category, setCategory] = useState('cafe');
 
     async function loadPlaces(map: LeafletMap) {
+
         setLoading(true);
 
         const bounds = map.getBounds();
@@ -63,6 +69,7 @@ function Map() {
         console.log('Request:', params.toString());
 
         try {
+
             const response = await fetch(
                 `http://localhost:3000/api/places?${params}`
             );
@@ -78,10 +85,37 @@ function Map() {
             setPlaces(data);
 
         } catch (error) {
+
             console.error('Failed to load places:', error);
+
         } finally {
+
             setLoading(false);
+
         }
+    }
+
+    function addToTrip(place: Place) {
+
+        setTrip(currentTrip => {
+
+            const alreadyAdded = currentTrip.some(
+                tripPlace => tripPlace.id === place.id
+            );
+
+            if (alreadyAdded) {
+                return currentTrip;
+            }
+
+            return [...currentTrip, place];
+        });
+    }
+
+    function removeFromTrip(placeId: number) {
+
+        setTrip(currentTrip =>
+            currentTrip.filter(place => place.id !== placeId)
+        );
     }
 
     return (
@@ -90,13 +124,18 @@ function Map() {
             <div className="map-controls">
 
                 {Object.entries(categories).map(([groupKey, group]) => (
-                    <div key={groupKey} className="category-group">
 
-                        <h3>{group.label}</h3>
+                    <div
+                        key={groupKey}
+                        className="category-group"
+                    >
+
+                        <h3 className='category-title'>{group.label}</h3>
 
                         <div className="category-buttons">
 
                             {group.places.map(place => (
+
                                 <button
                                     key={place.value}
                                     className={
@@ -108,11 +147,13 @@ function Map() {
                                 >
                                     {place.label}
                                 </button>
+
                             ))}
 
                         </div>
 
                     </div>
+
                 ))}
 
             </div>
@@ -127,23 +168,102 @@ function Map() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                <FindPlacesButton
-                    onFind={loadPlaces}
-                    loading={loading}
-                />
+                <FindPlacesButton onFind={loadPlaces} loading={loading}/>
 
                 {places.map(place => (
+
                     <Marker
                         key={place.id}
                         position={[place.lat, place.lon]}
                     >
+
                         <Popup>
-                            {place.name}
+
+                            <strong>
+                                {place.name}
+                            </strong>
+
+                            <br />
+
+                            <button
+                                onClick={() => addToTrip(place)}
+                                disabled={trip.some(
+                                    tripPlace =>
+                                        tripPlace.id === place.id
+                                )}
+                            >
+                                {trip.some(
+                                    tripPlace =>
+                                        tripPlace.id === place.id
+                                )
+                                    ? 'Added to trip'
+                                    : 'Add to trip'
+                                }
+                            </button>
+
                         </Popup>
+
                     </Marker>
+
                 ))}
 
             </MapContainer>
+
+            <div className="trip-panel">
+
+                <h2>Your Trip</h2>
+
+                {trip.length === 0 ? (
+
+                    <p>
+                        Add places to your trip to get started.
+                    </p>
+
+                ) : (
+
+                    <div className="trip-list">
+
+                        {trip.map((place, index) => (
+
+                            <div
+                                key={place.id}
+                                className="trip-place"
+                            >
+
+                                <div>
+                                    <strong>
+                                        {index + 1}. {place.name}
+                                    </strong>
+
+                                    <small>
+                                        {place.category}
+                                    </small>
+                                </div>
+
+                                <button
+                                    onClick={() =>
+                                        removeFromTrip(place.id)
+                                    }
+                                >
+                                    Remove
+                                </button>
+
+                            </div>
+
+                        ))}
+
+                    </div>
+
+                )}
+
+                {trip.length > 0 && (
+                    <p>
+                        {trip.length} place
+                        {trip.length !== 1 ? 's' : ''} selected
+                    </p>
+                )}
+
+            </div>
 
         </div>
     );
