@@ -11,7 +11,7 @@ import {
 import type { Map as LeafletMap } from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
-import './Map.css'
+import './Map.css';
 
 type Place = {
     id: number;
@@ -20,13 +20,35 @@ type Place = {
     lon: number;
 };
 
-function FindCafesButton({onFind, loading}: {onFind: (map: LeafletMap) => void; loading: boolean;}) {
+type Category = {
+    value: string;
+    label: string;
+};
 
+const categories: Category[] = [
+    { value: 'cafe', label: 'Cafes' },
+    { value: 'restaurant', label: 'Restaurants' },
+    { value: 'pub', label: 'Pubs' },
+    { value: 'museum', label: 'Museums' },
+    { value: 'park', label: 'Parks' }
+];
+
+function FindPlacesButton({
+    onFind,
+    loading
+}: {
+    onFind: (map: LeafletMap) => void;
+    loading: boolean;
+}) {
     const map = useMap();
 
     return (
-        <button className="find-cafes-button" onClick={() => onFind(map)} disabled={loading}>
-            {loading ? 'Loading...' : 'Find Cafes'}
+        <button
+            className="find-places-button"
+            onClick={() => onFind(map)}
+            disabled={loading}
+        >
+            {loading ? 'Loading...' : 'Search'}
         </button>
     );
 }
@@ -34,6 +56,7 @@ function FindCafesButton({onFind, loading}: {onFind: (map: LeafletMap) => void; 
 function Map() {
     const [places, setPlaces] = useState<Place[]>([]);
     const [loading, setLoading] = useState(false);
+    const [category, setCategory] = useState('cafe');
 
     async function loadPlaces(map: LeafletMap) {
         setLoading(true);
@@ -41,21 +64,19 @@ function Map() {
         const bounds = map.getBounds();
 
         const params = new URLSearchParams({
+            category: category,
             south: bounds.getSouth().toString(),
             west: bounds.getWest().toString(),
             north: bounds.getNorth().toString(),
             east: bounds.getEast().toString()
         });
 
-        console.log('Map bounds:', {
-            south: bounds.getSouth(),
-            west: bounds.getWest(),
-            north: bounds.getNorth(),
-            east: bounds.getEast()
-        });
+        console.log('Request:', params.toString());
 
         try {
-            const response = await fetch(`http://localhost:3000/api/places?${params}`);
+            const response = await fetch(
+                `http://localhost:3000/api/places?${params}`
+            );
 
             if (!response.ok) {
                 throw new Error(`Request failed: ${response.status}`);
@@ -76,22 +97,53 @@ function Map() {
 
     return (
         <div className="map-wrapper">
-            <MapContainer className="map" center={[54.0722, -1.9975]} zoom={19}>
 
-                <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+            <div className="map-controls">
 
-                <FindCafesButton onFind={loadPlaces} loading={loading}/>
+                <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                >
+                    {categories.map(category => (
+                        <option
+                            key={category.value}
+                            value={category.value}
+                        >
+                            {category.label}
+                        </option>
+                    ))}
+                </select>
+
+            </div>
+
+            <MapContainer
+                className="map"
+                center={[54.0722, -1.9975]}
+                zoom={19}
+            >
+                <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                <FindPlacesButton
+                    onFind={loadPlaces}
+                    loading={loading}
+                />
 
                 {places.map(place => (
-
-                    <Marker key={place.id} position={[place.lat, place.lon]}>
-
-                        <Popup>{place.name}</Popup>
-
+                    <Marker
+                        key={place.id}
+                        position={[place.lat, place.lon]}
+                    >
+                        <Popup>
+                            {place.name}
+                        </Popup>
                     </Marker>
                 ))}
 
             </MapContainer>
+
         </div>
     );
 }

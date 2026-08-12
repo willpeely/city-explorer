@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors'
-import { getCafes } from './services/overpass.js';
+import { getPlaces } from './services/overpass.js';
 
 const app = express();
 
@@ -14,9 +14,16 @@ app.get('/', (req, res) => {
 
 app.get('/api/places', async (req, res) => {
     try {
-        const { south, west, north, east } = req.query;
+        const {
+            category,
+            south,
+            west,
+            north,
+            east
+        } = req.query;
 
-        const places = await getCafes(
+        const places = await getPlaces(
+            category,
             Number(south),
             Number(west),
             Number(north),

@@ -1,13 +1,13 @@
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-export async function getCafes(south, west, north, east) {
+export async function getPlaces(category, south, west, north, east) {
     console.log('Getting cafes from Overpass');
 
     const query = `
         [out:json];
 
         node
-            ["amenity"="cafe"]
+            ["amenity"="${category}"]
             (${south},${west},${north},${east});
         out;
     `;
@@ -37,7 +37,7 @@ export async function getCafes(south, west, north, east) {
 
     return data.elements.map(place => ({
         id: place.id,
-        name: place.tags?.name ?? 'Cafe',
+        name: place.tags?.name ?? 'Unnamed Place',
         lat: place.lat,
         lon: place.lon
     }));
