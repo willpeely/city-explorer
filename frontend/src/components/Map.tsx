@@ -10,6 +10,8 @@ import {
 
 import type { Map as LeafletMap } from 'leaflet';
 
+import { categories } from '../../../shared/data/categories';
+
 import 'leaflet/dist/leaflet.css';
 import './Map.css';
 
@@ -19,19 +21,6 @@ type Place = {
     lat: number;
     lon: number;
 };
-
-type Category = {
-    value: string;
-    label: string;
-};
-
-const categories: Category[] = [
-    { value: 'cafe', label: 'Cafes' },
-    { value: 'restaurant', label: 'Restaurants' },
-    { value: 'pub', label: 'Pubs' },
-    { value: 'museum', label: 'Museums' },
-    { value: 'park', label: 'Parks' }
-];
 
 function FindPlacesButton({
     onFind,
@@ -100,19 +89,31 @@ function Map() {
 
             <div className="map-controls">
 
-                <select
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value)}
-                >
-                    {categories.map(category => (
-                        <option
-                            key={category.value}
-                            value={category.value}
-                        >
-                            {category.label}
-                        </option>
-                    ))}
-                </select>
+                {Object.entries(categories).map(([groupKey, group]) => (
+                    <div key={groupKey} className="category-group">
+
+                        <h3>{group.label}</h3>
+
+                        <div className="category-buttons">
+
+                            {group.places.map(place => (
+                                <button
+                                    key={place.value}
+                                    className={
+                                        category === place.value
+                                            ? 'category-button selected'
+                                            : 'category-button'
+                                    }
+                                    onClick={() => setCategory(place.value)}
+                                >
+                                    {place.label}
+                                </button>
+                            ))}
+
+                        </div>
+
+                    </div>
+                ))}
 
             </div>
 
