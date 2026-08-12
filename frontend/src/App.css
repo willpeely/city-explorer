@@ -4,8 +4,3 @@ main{
   align-items: center;
   justify-content: center;
 }
-
-.map {
-    height: 100vh;
-    width: 80%;
-}

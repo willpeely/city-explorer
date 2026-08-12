@@ -1,6 +1,6 @@
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
-export async function getCafes() {
+export async function getCafes(south, west, north, east) {
     console.log('Getting cafes from Overpass');
 
     const query = `
@@ -8,10 +8,11 @@ export async function getCafes() {
 
         node
             ["amenity"="cafe"]
-            (51.49,-0.15,51.52,-0.10);
-
+            (${south},${west},${north},${east});
         out;
     `;
+
+    console.log(query);
 
     const response = await fetch(OVERPASS_URL, {
         method: 'POST',
@@ -21,6 +22,8 @@ export async function getCafes() {
         },
         body: query
     });
+
+    console.log('Response status:', response.status);
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -34,7 +37,7 @@ export async function getCafes() {
 
     return data.elements.map(place => ({
         id: place.id,
-        name: place.tags?.name ?? 'Unnamed cafe',
+        name: place.tags?.name ?? 'Cafe',
         lat: place.lat,
         lon: place.lon
     }));
