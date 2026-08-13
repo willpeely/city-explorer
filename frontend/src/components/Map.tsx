@@ -118,10 +118,56 @@ function Map() {
         );
     }
 
+    function moveUp(index: number) {
+
+        if (index === 0) {
+            return;
+        }
+
+        setTrip(currentTrip => {
+
+            const updatedTrip = [...currentTrip];
+
+            [
+                updatedTrip[index - 1],
+                updatedTrip[index]
+            ] = [
+                updatedTrip[index],
+                updatedTrip[index - 1]
+            ];
+
+            return updatedTrip;
+        });
+    }
+
+    function moveDown(index: number) {
+
+        setTrip(currentTrip => {
+
+            if (index === currentTrip.length - 1) {
+                return currentTrip;
+            }
+
+            const updatedTrip = [...currentTrip];
+
+            [
+                updatedTrip[index],
+                updatedTrip[index + 1]
+            ] = [
+                updatedTrip[index + 1],
+                updatedTrip[index]
+            ];
+
+            return updatedTrip;
+        });
+    }
+
     return (
         <div className="map-wrapper">
 
             <div className="map-controls">
+
+                <h2>Categories</h2>
 
                 {Object.entries(categories).map(([groupKey, group]) => (
 
@@ -225,30 +271,48 @@ function Map() {
 
                         {trip.map((place, index) => (
 
-                            <div
-                                key={place.id}
-                                className="trip-place"
-                            >
+                        <div
+                            key={place.id}
+                            className="trip-place"
+                        >
 
-                                <div>
-                                    <strong>
-                                        {index + 1}. {place.name}
-                                    </strong>
+                            <div className="trip-place-info">
 
-                                    <small>
-                                        {place.category}
-                                    </small>
-                                </div>
+                                <strong>
+                                    {index + 1}. {place.name}
+                                </strong>
+
+                                <small>
+                                    {place.category}
+                                </small>
+
+                            </div>
+
+                            <div className="trip-place-actions">
 
                                 <button
-                                    onClick={() =>
-                                        removeFromTrip(place.id)
-                                    }
+                                    onClick={() => moveUp(index)}
+                                    disabled={index === 0}
+                                >
+                                    ↑
+                                </button>
+
+                                <button
+                                    onClick={() => moveDown(index)}
+                                    disabled={index === trip.length - 1}
+                                >
+                                    ↓
+                                </button>
+
+                                <button
+                                    onClick={() => removeFromTrip(place.id)}
                                 >
                                     Remove
                                 </button>
 
                             </div>
+
+                        </div>
 
                         ))}
 
