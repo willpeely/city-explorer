@@ -1,128 +1,661 @@
+:root {
+    --bg-page: #f5f7fb;
+    --bg-panel: #ffffff;
+    --bg-subtle: #f8fafc;
+    --bg-hover: #f1f5f9;
+
+    --text-primary: #172033;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: #eff6ff;
+
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+
+    --success: #15803d;
+    --success-soft: #f0fdf4;
+
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+}
+
+
+/* --------------------------------------------------------------------------
+   Page layout
+   -------------------------------------------------------------------------- */
+
 .map-wrapper {
-    width: 100%;
-    min-height: 100vh;
+    width: min(1600px, 100%);
+    min-height: calc(100vh - 2rem);
+    margin: 0 auto;
+    padding: 1rem;
+
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(260px, 340px);
+    gap: 1rem;
+
+    background: var(--bg-page);
+    color: var(--text-primary);
+
     box-sizing: border-box;
-    display: flex;
-    justify-content: center;
+}
+
+
+/* --------------------------------------------------------------------------
+   Shared panels
+   -------------------------------------------------------------------------- */
+
+.map-controls,
+.trip-panel {
+    min-width: 0;
+    padding: 1.25rem;
+
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+
+    overflow-y: auto;
+}
+
+.map-controls h2,
+.trip-panel h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.3;
 }
 
 .map-controls {
-    width: 20%;
-    height: 100vh;
+    max-height: calc(100vh - 2rem);
+}
 
-    padding: 20px;
-
-    display: flex;
-    flex-direction: column;
-
-    background: white;
-    box-sizing: border-box;
-    gap: 20px;
+.trip-panel {
+    max-height: calc(100vh - 2rem);
 }
 
 
+/* --------------------------------------------------------------------------
+   Category controls
+   -------------------------------------------------------------------------- */
+
 .category-group {
-    display: flex;
-    flex-direction: column;
+    margin-top: 1.25rem;
 }
 
 .category-title {
-    margin-bottom: 10px;
+    margin: 0 0 0.6rem;
+
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+
+    color: var(--text-secondary);
 }
 
 .category-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
+.category-button {
+    appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
 
-button {
-    padding: 8px 14px;
+    padding: 0.55rem 0.8rem;
 
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    background: var(--bg-panel);
+    color: var(--text-primary);
 
-    background: white;
-    color: #4b5563;
-
-    font-weight: 500;
-
-    cursor: pointer;
-}
-
-
-button:hover {
-    background: #e5e6e9;
-    border-color: #9ca3af;
-}
-
-
-button.selected {
-    background: #111827;
-    border-color: #111827;
-    color: white;
-}
-
-.map {
-    width: 60%;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    box-sizing: border-box;
-    align-items: end;
-}
-
-.find-places-button {
-    width: 30%;
-    margin: 20px;
-    z-index: 1000;
-
-    padding: 10px 16px;
-
-    border: none;
-    border-radius: 8px;
-
-    background: #111827;
-    color: white;
-
-    font-size: 1.2rem;
+    font: inherit;
+    font-size: 0.88rem;
     font-weight: 600;
 
     cursor: pointer;
 
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition:
+        background-color 0.16s ease,
+        border-color 0.16s ease,
+        color 0.16s ease,
+        transform 0.16s ease;
 }
 
-.find-places-button:hover {
-    background-color: #23314d;
+.category-button:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
 }
 
-.trip-panel {
-    width: 20%;
-    padding: 20px;
+.category-button:active {
+    transform: translateY(1px);
+}
+
+.category-button.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+
+/* --------------------------------------------------------------------------
+   Map
+   -------------------------------------------------------------------------- */
+
+.map {
+    width: 100%;
+    min-height: 680px;
+    height: calc(100vh - 2rem);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+
+    overflow: hidden;
+    z-index: 0;
+}
+
+
+/* --------------------------------------------------------------------------
+   Leaflet search button
+   -------------------------------------------------------------------------- */
+
+.find-places-button {
+    position: absolute;
+    top: 0.8rem;
+    left: 50%;
+    z-index: 1000;
+
+    transform: translateX(-50%);
+
+    min-width: 150px;
+    padding: 0.7rem 1rem;
+
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 999px;
+
+    background: rgba(15, 23, 42, 0.9);
+    color: #ffffff;
+
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+    backdrop-filter: blur(8px);
+
+    transition:
+        background-color 0.16s ease,
+        transform 0.16s ease,
+        opacity 0.16s ease;
+}
+
+.find-places-button:hover:not(:disabled) {
+    background: #0f172a;
+    transform: translateX(-50%) translateY(-1px);
+}
+
+.find-places-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+
+/* --------------------------------------------------------------------------
+   Trip panel
+   -------------------------------------------------------------------------- */
+
+.trip-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+
+    margin-bottom: 1rem;
+}
+
+.trip-panel-header button {
+    border: 0;
+    background: transparent;
+    color: var(--danger);
+
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.trip-panel-header button:hover:not(:disabled) {
+    text-decoration: underline;
 }
 
 .trip-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    margin-bottom: 10px;
+    gap: 0.65rem;
 }
 
 .trip-place {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    padding: 0.75rem;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-subtle);
 }
 
 .trip-place-info {
+    min-width: 0;
+
     display: flex;
     flex-direction: column;
+    gap: 0.25rem;
+}
+
+.trip-place-info strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 0.92rem;
+}
+
+.trip-place-info small {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
 }
 
 .trip-place-actions {
+    flex-shrink: 0;
+
     display: flex;
-    gap: 6px;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.trip-place-actions button {
+    min-width: 2rem;
+    min-height: 2rem;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+
+    background: var(--bg-panel);
+    color: var(--text-primary);
+
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.trip-place-actions button:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+}
+
+.trip-place-actions button:last-child {
+    color: var(--danger);
+}
+
+.trip-count {
+    margin: 0.9rem 0 0;
+
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   Route options
+   -------------------------------------------------------------------------- */
+
+.route-options {
+    margin: 1.15rem 0 0;
+    padding: 0.9rem;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.route-options legend {
+    padding: 0 0.35rem;
+
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.route-options label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+
+    font-size: 0.9rem;
+
+    cursor: pointer;
+}
+
+.route-options input[type="radio"] {
+    width: 1rem;
+    height: 1rem;
+
+    accent-color: var(--accent);
+}
+
+.plan-route-button {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.78rem 1rem;
+
+    border: 0;
+    border-radius: var(--radius-md);
+
+    background: var(--accent);
+    color: #ffffff;
+
+    font: inherit;
+    font-weight: 700;
+
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18);
+
+    transition:
+        background-color 0.16s ease,
+        transform 0.16s ease,
+        opacity 0.16s ease;
+}
+
+.plan-route-button:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.plan-route-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.plan-route-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+
+/* --------------------------------------------------------------------------
+   Route summary
+   -------------------------------------------------------------------------- */
+
+.route-info {
+    margin-top: 1rem;
+    padding: 0.95rem;
+
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+}
+
+.route-info strong {
+    display: block;
+    margin-bottom: 0.55rem;
+}
+
+.route-info p {
+    margin: 0.35rem 0;
+
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   Messages
+   -------------------------------------------------------------------------- */
+
+.error-message,
+.info-message {
+    margin: 0.85rem 0 0;
+    padding: 0.7rem 0.8rem;
+
+    border-radius: var(--radius-sm);
+
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.error-message {
+    border: 1px solid #fecaca;
+    background: var(--danger-soft);
+    color: #991b1b;
+}
+
+.info-message {
+    border: 1px solid #bfdbfe;
+    background: var(--accent-soft);
+    color: #1e40af;
+}
+
+
+/* --------------------------------------------------------------------------
+   Shared button behaviour
+   -------------------------------------------------------------------------- */
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+button:focus-visible,
+input:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.28);
+    outline-offset: 2px;
+}
+
+
+/* --------------------------------------------------------------------------
+   Leaflet popup styling
+   -------------------------------------------------------------------------- */
+
+.leaflet-popup-content-wrapper {
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+
+.leaflet-popup-content {
+    min-width: 170px;
+    margin: 0.9rem;
+
+    color: var(--text-primary);
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+.leaflet-popup-content strong {
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
+.leaflet-popup-content small {
+    color: var(--text-secondary);
+}
+
+.leaflet-popup-content button {
+    width: 100%;
+    margin-top: 0.7rem;
+    padding: 0.55rem 0.7rem;
+
+    border: 0;
+    border-radius: var(--radius-sm);
+
+    background: var(--accent);
+    color: #ffffff;
+
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.leaflet-popup-content button:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+
+/* --------------------------------------------------------------------------
+   Scrollbars
+   -------------------------------------------------------------------------- */
+
+.map-controls,
+.trip-panel {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+
+
+/* --------------------------------------------------------------------------
+   Tablet
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+
+    .map-wrapper {
+        grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+        grid-template-areas:
+            "controls map"
+            "trip trip";
+    }
+
+    .map-controls {
+        grid-area: controls;
+        max-height: 650px;
+    }
+
+    .map {
+        grid-area: map;
+        min-height: 650px;
+        height: 650px;
+    }
+
+    .trip-panel {
+        grid-area: trip;
+        max-height: none;
+    }
+
+}
+
+
+/* --------------------------------------------------------------------------
+   Mobile
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+
+    .map-wrapper {
+        min-height: 100vh;
+        padding: 0.65rem;
+
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "controls"
+            "map"
+            "trip";
+
+        gap: 0.65rem;
+    }
+
+    .map-controls,
+    .trip-panel {
+        max-height: none;
+        padding: 1rem;
+        border-radius: var(--radius-md);
+    }
+
+    .map {
+        min-height: 520px;
+        height: 65vh;
+        border-radius: var(--radius-md);
+    }
+
+    .category-buttons {
+        gap: 0.4rem;
+    }
+
+    .category-button {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.82rem;
+    }
+
+    .trip-place {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .trip-place-info {
+        width: 100%;
+    }
+
+    .trip-place-info strong {
+        white-space: normal;
+    }
+
+    .trip-place-actions {
+        width: 100%;
+    }
+
+    .trip-place-actions button:last-child {
+        margin-left: auto;
+    }
+
+    .find-places-button {
+        top: 0.6rem;
+    }
+
+}
+
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+    }
+
 }
