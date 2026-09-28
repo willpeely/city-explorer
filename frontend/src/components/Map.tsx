@@ -33,7 +33,6 @@ function FindPlacesButton({
     onFind: (map: LeafletMap) => void;
     loading: boolean;
 }) {
-
     const map = useMap();
 
     return (
@@ -48,28 +47,25 @@ function FindPlacesButton({
 }
 
 function Map() {
-
     const [places, setPlaces] = useState<Place[]>([]);
     const [trip, setTrip] = useState<Place[]>([]);
     const [route, setRoute] = useState<RoutePoint[]>([]);
+    const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
 
     const [loading, setLoading] = useState(false);
     const [routeLoading, setRouteLoading] = useState(false);
 
     const [category, setCategory] = useState('cafe');
+    const [optimise, setOptimise] = useState(false);
 
     const markers = [
         ...places,
         ...trip.filter(
-            tripPlace =>
-                !places.some(place => place.id === tripPlace.id)
+            tripPlace => !places.some(place => place.id === tripPlace.id)
         )
     ];
 
-    const [optimise, setOptimise] = useState(false);
-
     async function loadPlaces(map: LeafletMap) {
-
         setLoading(true);
 
         const bounds = map.getBounds();
@@ -85,7 +81,6 @@ function Map() {
         console.log('Request:', params.toString());
 
         try {
-
             const response = await fetch(
                 `http://localhost:3000/api/places?${params}`
             );
@@ -99,22 +94,15 @@ function Map() {
             console.log('Places received:', data);
 
             setPlaces(data);
-
         } catch (error) {
-
             console.error('Failed to load places:', error);
-
         } finally {
-
             setLoading(false);
-
         }
     }
 
     function addToTrip(place: Place) {
-
         setTrip(currentTrip => {
-
             const alreadyAdded = currentTrip.some(
                 tripPlace => tripPlace.id === place.id
             );
@@ -123,16 +111,16 @@ function Map() {
                 return currentTrip;
             }
 
-            // A new trip means we need to generate a new route.
             setRoute([]);
+            setRouteInfo(null);
 
             return [...currentTrip, place];
         });
     }
 
     function removeFromTrip(placeId: number) {
-
         setRoute([]);
+        setRouteInfo(null);
 
         setTrip(currentTrip =>
             currentTrip.filter(place => place.id !== placeId)
@@ -140,21 +128,17 @@ function Map() {
     }
 
     function moveUp(index: number) {
-
         if (index === 0) {
             return;
         }
 
         setRoute([]);
+        setRouteInfo(null);
 
         setTrip(currentTrip => {
-
             const updatedTrip = [...currentTrip];
 
-            [
-                updatedTrip[index - 1],
-                updatedTrip[index]
-            ] = [
+            [updatedTrip[index - 1], updatedTrip[index]] = [
                 updatedTrip[index],
                 updatedTrip[index - 1]
             ];
@@ -164,21 +148,17 @@ function Map() {
     }
 
     function moveDown(index: number) {
-
         if (index === trip.length - 1) {
             return;
         }
 
         setRoute([]);
+        setRouteInfo(null);
 
         setTrip(currentTrip => {
-
             const updatedTrip = [...currentTrip];
 
-            [
-                updatedTrip[index],
-                updatedTrip[index + 1]
-            ] = [
+            [updatedTrip[index], updatedTrip[index + 1]] = [
                 updatedTrip[index + 1],
                 updatedTrip[index]
             ];
@@ -188,7 +168,6 @@ function Map() {
     }
 
     async function planRoute() {
-
         if (trip.length < 2) {
             return;
         }
@@ -196,7 +175,6 @@ function Map() {
         setRouteLoading(true);
 
         try {
-
             const response = await fetch(
                 'http://localhost:3000/api/route',
                 {
@@ -221,27 +199,24 @@ function Map() {
 
             console.log('Route received:', data);
 
-            const coordinates =
-                data.features[0].geometry.coordinates;
+            const summary = data.features[0].properties.summary;
 
-            const leafletRoute: RoutePoint[] =
-                coordinates.map(
-                    ([lon, lat]: [number, number]) => [
-                        lat,
-                        lon
-                    ]
-                );
+            setRouteInfo({
+                distance: summary.distance,
+                duration: summary.duration
+            });
+
+            const coordinates = data.features[0].geometry.coordinates;
+
+            const leafletRoute: RoutePoint[] = coordinates.map(
+                ([lon, lat]: [number, number]) => [lat, lon]
+            );
 
             setRoute(leafletRoute);
-
         } catch (error) {
-
             console.error('Failed to generate route:', error);
-
         } finally {
-
             setRouteLoading(false);
-
         }
     }
 
@@ -254,41 +229,36 @@ function Map() {
 
                 {Object.entries(categories).map(
                     ([groupKey, group]) => (
+                        <div
+                            key={groupKey}
+                            className="category-group"
+                        >
+                            <h3 className="category-title">
+                                {group.label}
+                            </h3>
 
-                    <div
-                        key={groupKey}
-                        className="category-group"
-                    >
+                            <div className="category-buttons">
 
-                        <h3 className="category-title">
-                            {group.label}
-                        </h3>
+                                {group.places.map(place => (
+                                    <button
+                                        key={place.value}
+                                        className={
+                                            category === place.value
+                                                ? 'category-button selected'
+                                                : 'category-button'
+                                        }
+                                        onClick={() =>
+                                            setCategory(place.value)
+                                        }
+                                    >
+                                        {place.label}
+                                    </button>
+                                ))}
 
-                        <div className="category-buttons">
-
-                            {group.places.map(place => (
-
-                                <button
-                                    key={place.value}
-                                    className={
-                                        category === place.value
-                                            ? 'category-button selected'
-                                            : 'category-button'
-                                    }
-                                    onClick={() =>
-                                        setCategory(place.value)
-                                    }
-                                >
-                                    {place.label}
-                                </button>
-
-                            ))}
-
+                            </div>
                         </div>
-
-                    </div>
-
-                ))}
+                    )
+                )}
 
             </div>
 
@@ -309,51 +279,35 @@ function Map() {
                 />
 
                 {markers.map(place => (
-
                     <Marker
                         key={place.id}
-                        position={[
-                            place.lat,
-                            place.lon
-                        ]}
+                        position={[place.lat, place.lon]}
                     >
-
                         <Popup>
 
-                            <strong>
-                                {place.name}
-                            </strong>
+                            <strong>{place.name}</strong>
 
                             <br />
 
                             <button
-                                onClick={() =>
-                                    addToTrip(place)
-                                }
+                                onClick={() => addToTrip(place)}
                                 disabled={trip.some(
-                                    tripPlace =>
-                                        tripPlace.id === place.id
+                                    tripPlace => tripPlace.id === place.id
                                 )}
                             >
                                 {trip.some(
-                                    tripPlace =>
-                                        tripPlace.id === place.id
+                                    tripPlace => tripPlace.id === place.id
                                 )
                                     ? 'Added to trip'
-                                    : 'Add to trip'
-                                }
+                                    : 'Add to trip'}
                             </button>
 
                         </Popup>
-
                     </Marker>
-
                 ))}
 
                 {route.length > 0 && (
-                    <Polyline
-                        positions={route}
-                    />
+                    <Polyline positions={route} />
                 )}
 
             </MapContainer>
@@ -363,52 +317,36 @@ function Map() {
                 <h2>Your Trip</h2>
 
                 {trip.length === 0 ? (
-
-                    <p>
-                        Add places to your trip to get started.
-                    </p>
-
+                    <p>Add places to your trip to get started.</p>
                 ) : (
-
                     <div className="trip-list">
 
                         {trip.map((place, index) => (
-
                             <div
                                 key={place.id}
                                 className="trip-place"
                             >
 
                                 <div className="trip-place-info">
-
                                     <strong>
                                         {index + 1}. {place.name}
                                     </strong>
 
-                                    <small>
-                                        {place.category}
-                                    </small>
-
+                                    <small>{place.category}</small>
                                 </div>
 
                                 <div className="trip-place-actions">
 
                                     <button
-                                        onClick={() =>
-                                            moveUp(index)
-                                        }
+                                        onClick={() => moveUp(index)}
                                         disabled={index === 0}
                                     >
                                         ↑
                                     </button>
 
                                     <button
-                                        onClick={() =>
-                                            moveDown(index)
-                                        }
-                                        disabled={
-                                            index === trip.length - 1
-                                        }
+                                        onClick={() => moveDown(index)}
+                                        disabled={index === trip.length - 1}
                                     >
                                         ↓
                                     </button>
@@ -424,24 +362,20 @@ function Map() {
                                 </div>
 
                             </div>
-
                         ))}
 
                     </div>
-
                 )}
 
                 {trip.length > 0 && (
-
                     <p>
                         {trip.length} place
-                        {trip.length !== 1 ? 's' : ''}
-                        {' '}selected
+                        {trip.length !== 1 ? 's' : ''} selected
                     </p>
-
                 )}
 
                 <div>
+
                     <label>
                         <input
                             type="radio"
@@ -461,20 +395,32 @@ function Map() {
                         />
                         Optimise route
                     </label>
+
                 </div>
 
                 {trip.length >= 2 && (
-
                     <button
                         onClick={planRoute}
                         disabled={routeLoading}
                     >
                         {routeLoading
                             ? 'Planning Route...'
-                            : 'Plan Route'
-                        }
+                            : 'Plan Route'}
                     </button>
+                )}
 
+                {routeInfo && (
+                    <div className="route-info">
+                        <strong>Route Summary</strong>
+
+                        <p>
+                            Distance: {(routeInfo.distance / 1000).toFixed(2)} km
+                        </p>
+
+                        <p>
+                            Walking time: {Math.round(routeInfo.duration / 60)} min
+                        </p>
+                    </div>
                 )}
 
             </div>
