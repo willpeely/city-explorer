@@ -7,11 +7,12 @@ import {
 
 
 const OVERPASS_URLS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter'
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass-api.de/api/interpreter'
 ];
 
-const OVERPASS_TIMEOUT_MS = 15_000;
+const OVERPASS_TIMEOUT_MS = 6_000;
 
 /*
 |--------------------------------------------------------------------------
