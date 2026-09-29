@@ -249,19 +249,21 @@ export async function getPlaces(
                 const errorText =
                     await response.text();
 
+                console.error(
+                    'Overpass returned non-OK response',
+                    {
+                        url,
+                        status: response.status,
+                        body: errorText.slice(0, 200)
+                    }
+                );
 
                 lastError =
                     externalServiceError(
-                        `Overpass request failed: ${
-                            response.status
-                        } ${
-                            errorText.slice(0, 500)
-                        }`
+                        `Overpass request failed: ${response.status}`
                     );
 
-
                 continue;
-
             }
 
 
@@ -307,6 +309,21 @@ export async function getPlaces(
             );
 
         } catch (error) {
+
+            console.error(
+                'Overpass request failed',
+                {
+                    url,
+                    error:
+                        error instanceof Error
+                            ? {
+                                name: error.name,
+                                message: error.message,
+                                cause: error.cause
+                            }
+                            : error
+                }
+            );
 
             lastError = error;
 
