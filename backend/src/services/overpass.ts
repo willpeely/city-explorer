@@ -6,13 +6,12 @@ import {
 } from '../../../shared/data/categories';
 
 
-const OVERPASS_URL =
-    'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter'
+];
 
-
-const OVERPASS_TIMEOUT_MS =
-    15_000;
-
+const OVERPASS_TIMEOUT_MS = 15_000;
 
 /*
 |--------------------------------------------------------------------------
@@ -214,99 +213,125 @@ export async function getPlaces(
     |
     */
 
-    const response = await fetch(
-        OVERPASS_URL,
-        {
+    let lastError: unknown;
 
-            method: 'POST',
 
-            headers: {
+    for (const url of OVERPASS_URLS) {
 
-                'Content-Type':
-                    'text/plain',
+        try {
 
-                'User-Agent':
-                    'CityExplorer/1.0'
+            const response = await fetch(
+                url,
+                {
+                    method: 'POST',
 
-            },
+                    headers: {
+                        'Content-Type':
+                            'text/plain',
 
-            body: query,
+                        'User-Agent':
+                            'CityExplorer/1.0'
+                    },
 
-            signal:
-                AbortSignal.timeout(
-                    OVERPASS_TIMEOUT_MS
-                )
+                    body: query,
+
+                    signal:
+                        AbortSignal.timeout(
+                            OVERPASS_TIMEOUT_MS
+                        )
+                }
+            );
+
+
+            if (!response.ok) {
+
+                const errorText =
+                    await response.text();
+
+
+                lastError =
+                    externalServiceError(
+                        `Overpass request failed: ${
+                            response.status
+                        } ${
+                            errorText.slice(0, 500)
+                        }`
+                    );
+
+
+                continue;
+
+            }
+
+
+            const data: unknown =
+                await response.json();
+
+
+            const validation =
+                overpassResponseSchema.safeParse(
+                    data
+                );
+
+
+            if (!validation.success) {
+
+                lastError =
+                    externalServiceError(
+                        'Overpass returned an unexpected response'
+                    );
+
+
+                continue;
+
+            }
+
+
+            return validation.data.elements.map(
+                place => ({
+
+                    id: place.id,
+
+                    name:
+                        place.tags?.name
+                        ?? 'Unnamed place',
+
+                    lat: place.lat,
+
+                    lon: place.lon,
+
+                    category
+
+                })
+            );
+
+        } catch (error) {
+
+            lastError = error;
 
         }
-    );
-
-
-    if (!response.ok) {
-
-        const errorText =
-            await response.text();
-
-
-        throw externalServiceError(
-
-            `Overpass request failed: ${
-                response.status
-            } ${
-                errorText.slice(0, 500)
-            }`
-
-        );
-
-    }
-
-
-    const data: unknown =
-        await response.json();
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Runtime response validation
-    |--------------------------------------------------------------------------
-    */
-
-    const validation =
-        overpassResponseSchema.safeParse(
-            data
-        );
-
-
-    if (!validation.success) {
-
-        throw externalServiceError(
-            'Overpass returned an unexpected response'
-        );
 
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Convert external API objects into our own Place objects
+    | Both Overpass instances failed
     |--------------------------------------------------------------------------
     */
 
-    return validation.data.elements.map(
-        place => ({
+    if (
+        lastError instanceof Error
+        && lastError.name === 'TimeoutError'
+    ) {
 
-            id: place.id,
+        throw lastError;
 
-            name:
-                place.tags?.name
-                ?? 'Unnamed place',
+    }
 
-            lat: place.lat,
 
-            lon: place.lon,
-
-            category
-
-        })
+    throw externalServiceError(
+        'All Overpass API instances failed'
     );
 
 }
