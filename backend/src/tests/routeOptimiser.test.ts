@@ -10,7 +10,7 @@ import {
 
 import type {
     Place
-} from '../services/overpass.ts';
+} from '../services/places.ts';
 
 const placeA: Place = {
     id: 1,

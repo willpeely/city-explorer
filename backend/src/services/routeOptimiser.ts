@@ -1,4 +1,4 @@
-import type { Place } from './overpass.ts';
+import type { Place } from './places.ts';
 
 
 export function optimiseRoute(

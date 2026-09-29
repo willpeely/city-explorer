@@ -19,7 +19,7 @@ import request from 'supertest';
 */
 
 vi.mock(
-    '../services/overpass.ts',
+    '../services/places.ts',
     () => ({
 
         getPlaces:
@@ -74,7 +74,7 @@ import app from '../app.ts';
 
 import {
     getPlaces
-} from '../services/overpass.ts';
+} from '../services/places.ts';
 
 import {
     getRoute,

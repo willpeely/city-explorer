@@ -7,62 +7,125 @@ import express, {
 } from 'express';
 
 import cors from 'cors';
-import { rateLimit } from 'express-rate-limit';
+
+import {
+    rateLimit
+} from 'express-rate-limit';
+
 import pinoHttp from 'pino-http';
+
 import { z } from 'zod';
+
 
 import {
     getPlaces,
     isValidCategory
-} from './services/overpass.ts';
+} from './services/places.ts';
+
 
 import {
     getRoute,
     getDistanceMatrix
 } from './services/openroute.js';
 
+
 import {
     optimiseRoute
 } from './services/routeOptimiser.ts';
 
 
-const app = express();
+/*
+|--------------------------------------------------------------------------
+| Application
+|--------------------------------------------------------------------------
+*/
 
+const app =
+    express();
+
+
+/*
+|--------------------------------------------------------------------------
+| Reverse proxy
+|--------------------------------------------------------------------------
+|
+| Render places the Express application behind a reverse proxy.
+|
+| Trusting the first proxy allows Express and express-rate-limit to use
+| forwarded client information correctly.
+|
+*/
+
+app.set(
+    'trust proxy',
+    1
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Remove unnecessary Express header
+|--------------------------------------------------------------------------
+*/
+
+app.disable(
+    'x-powered-by'
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Configuration
+|--------------------------------------------------------------------------
+*/
 
 const FRONTEND_URL =
-    process.env.FRONTEND_URL
-    ?? 'http://localhost:5173';
+    (
+        process.env.FRONTEND_URL
+        ??
+        'http://localhost:5173'
+    )
+        .replace(
+            /\/$/,
+            ''
+        );
 
 
 /*
 |--------------------------------------------------------------------------
 | Logging
 |--------------------------------------------------------------------------
-|
-| When tests are running we silence the logger so npm test output stays
-| readable.
-|
 */
 
-const httpLogger = pinoHttp({
+const httpLogger =
+    pinoHttp({
 
-    level:
-        process.env.NODE_ENV === 'test'
-            ? 'silent'
-            : process.env.LOG_LEVEL ?? 'info',
+        level:
 
-    redact: [
-        'req.headers.authorization'
-    ]
+            process.env.NODE_ENV ===
+                'test'
 
-});
+                ? 'silent'
+
+                : process.env.LOG_LEVEL
+                    ?? 'info',
+
+        redact: [
+
+            'req.headers.authorization'
+
+        ]
+
+    });
 
 
 export const logger =
     httpLogger.logger;
 
 
-app.use(httpLogger);
+app.use(
+    httpLogger
+);
 
 
 /*
@@ -71,9 +134,16 @@ app.use(httpLogger);
 |--------------------------------------------------------------------------
 */
 
-app.use(cors({
-    origin: FRONTEND_URL
-}));
+app.use(
+
+    cors({
+
+        origin:
+            FRONTEND_URL
+
+    })
+
+);
 
 
 /*
@@ -82,9 +152,16 @@ app.use(cors({
 |--------------------------------------------------------------------------
 */
 
-app.use(express.json({
-    limit: '100kb'
-}));
+app.use(
+
+    express.json({
+
+        limit:
+            '100kb'
+
+    })
+
+);
 
 
 /*
@@ -94,24 +171,35 @@ app.use(express.json({
 */
 
 app.get(
+
     '/api/health',
-    (req, res) => {
 
-        res.status(200).json({
+    (
+        _req,
+        res
+    ) => {
 
-            status: 'ok',
+        res.status(
+            200
+        )
+            .json({
 
-            uptimeSeconds:
-                Math.round(
-                    process.uptime()
-                ),
+                status:
+                    'ok',
 
-            timestamp:
-                new Date().toISOString()
+                uptimeSeconds:
+                    Math.round(
+                        process.uptime()
+                    ),
 
-        });
+                timestamp:
+                    new Date()
+                        .toISOString()
+
+            });
 
     }
+
 );
 
 
@@ -121,48 +209,54 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-const apiLimiter = rateLimit({
+const apiLimiter =
+    rateLimit({
 
-    windowMs:
-        60 * 1000,
+        windowMs:
+            60 * 1000,
 
-    limit:
-        100,
+        limit:
+            100,
 
-    standardHeaders:
-        'draft-8',
+        standardHeaders:
+            'draft-8',
 
-    legacyHeaders:
-        false,
+        legacyHeaders:
+            false,
 
-    message: {
-        error:
-            'Too many requests. Please try again later.'
-    }
+        message: {
 
-});
+            error:
+                'Too many requests. Please try again later.'
+
+        }
+
+    });
 
 
-const routeLimiter = rateLimit({
+const routeLimiter =
+    rateLimit({
 
-    windowMs:
-        60 * 1000,
+        windowMs:
+            60 * 1000,
 
-    limit:
-        20,
+        limit:
+            20,
 
-    standardHeaders:
-        'draft-8',
+        standardHeaders:
+            'draft-8',
 
-    legacyHeaders:
-        false,
+        legacyHeaders:
+            false,
 
-    message: {
-        error:
-            'Too many route requests. Please try again later.'
-    }
+        message: {
 
-});
+            error:
+                'Too many route requests. Please try again later.'
+
+        }
+
+    });
 
 
 app.use(
@@ -179,146 +273,169 @@ app.use(
 
 /*
 |--------------------------------------------------------------------------
-| Validation schemas
+| Request validation
 |--------------------------------------------------------------------------
 */
 
-const placesQuerySchema = z
-    .object({
+const placesQuerySchema =
+    z
+        .object({
 
-        category: z
-            .string()
-            .trim()
-            .min(1)
-            .max(100)
-            .refine(
-                isValidCategory,
-                {
-                    error:
-                        'Unsupported category'
-                }
-            ),
+            category:
+                z.string()
+                    .trim()
+                    .min(1)
+                    .max(100)
+                    .refine(
 
-        south: z
-            .coerce
-            .number()
-            .min(-90)
-            .max(90),
+                        isValidCategory,
 
-        west: z
-            .coerce
-            .number()
-            .min(-180)
-            .max(180),
+                        {
 
-        north: z
-            .coerce
-            .number()
-            .min(-90)
-            .max(90),
+                            error:
+                                'Unsupported category'
 
-        east: z
-            .coerce
-            .number()
-            .min(-180)
-            .max(180)
+                        }
 
-    })
-    .strict()
+                    ),
 
-    .refine(
-        data =>
-            data.south < data.north,
-        {
-            error:
-                'south must be less than north',
+            south:
+                z.coerce
+                    .number()
+                    .min(-90)
+                    .max(90),
 
-            path: [
-                'south'
-            ]
-        }
-    )
+            west:
+                z.coerce
+                    .number()
+                    .min(-180)
+                    .max(180),
 
-    .refine(
-        data =>
-            data.west < data.east,
-        {
-            error:
-                'west must be less than east',
+            north:
+                z.coerce
+                    .number()
+                    .min(-90)
+                    .max(90),
 
-            path: [
-                'west'
-            ]
-        }
-    );
+            east:
+                z.coerce
+                    .number()
+                    .min(-180)
+                    .max(180)
 
+        })
+        .strict()
 
-const placeSchema = z
-    .object({
+        .refine(
 
-        id: z
-            .number()
-            .int()
-            .positive(),
+            data =>
+                data.south <
+                data.north,
 
-        name: z
-            .string()
-            .trim()
-            .min(1)
-            .max(200),
+            {
 
-        lat: z
-            .number()
-            .min(-90)
-            .max(90),
+                error:
+                    'south must be less than north',
 
-        lon: z
-            .number()
-            .min(-180)
-            .max(180),
+                path: [
+                    'south'
+                ]
 
-        category: z
-            .string()
-            .trim()
-            .min(1)
-            .max(100)
+            }
 
-    })
-    .strict();
+        )
+
+        .refine(
+
+            data =>
+                data.west <
+                data.east,
+
+            {
+
+                error:
+                    'west must be less than east',
+
+                path: [
+                    'west'
+                ]
+
+            }
+
+        );
 
 
-const routeRequestSchema = z
-    .object({
+const placeSchema =
+    z
+        .object({
 
-        places: z
-            .array(
-                placeSchema
-            )
-            .min(2)
-            .max(20),
+            id:
+                z.number()
+                    .int()
+                    .positive(),
 
-        optimise: z
-            .boolean()
-            .default(false)
+            name:
+                z.string()
+                    .trim()
+                    .min(1)
+                    .max(200),
 
-    })
-    .strict();
+            lat:
+                z.number()
+                    .min(-90)
+                    .max(90),
+
+            lon:
+                z.number()
+                    .min(-180)
+                    .max(180),
+
+            category:
+                z.string()
+                    .trim()
+                    .min(1)
+                    .max(100)
+
+        })
+        .strict();
+
+
+const routeRequestSchema =
+    z
+        .object({
+
+            places:
+                z.array(
+                    placeSchema
+                )
+                    .min(2)
+                    .max(20),
+
+            optimise:
+                z.boolean()
+                    .default(false)
+
+        })
+        .strict();
 
 
 /*
 |--------------------------------------------------------------------------
-| Async handler
+| Async route wrapper
 |--------------------------------------------------------------------------
 |
-| Express does not need repeated try/catch blocks in every route.
-| Any rejected promise gets passed to the central error handler.
+| Rejected promises are forwarded to the central Express error handler.
 |
 */
 
 type AsyncRequestHandler = (
+
     req: Request,
+
     res: Response,
+
     next: NextFunction
+
 ) => Promise<void>;
 
 
@@ -327,16 +444,23 @@ function asyncHandler(
 ) {
 
     return (
+
         req: Request,
+
         res: Response,
+
         next: NextFunction
+
     ) => {
 
-        handler(
+        void handler(
             req,
             res,
             next
-        ).catch(next);
+        )
+            .catch(
+                next
+            );
 
     };
 
@@ -345,24 +469,33 @@ function asyncHandler(
 
 /*
 |--------------------------------------------------------------------------
-| Validation error helper
+| Validation error response
 |--------------------------------------------------------------------------
 */
 
 function sendValidationError(
+
     res: Response,
+
     error: z.ZodError
+
 ) {
 
-    res.status(400).json({
+    res
+        .status(
+            400
+        )
+        .json({
 
-        error:
-            'Invalid request',
+            error:
+                'Invalid request',
 
-        details:
-            z.flattenError(error)
+            details:
+                z.flattenError(
+                    error
+                )
 
-    });
+        });
 
 }
 
@@ -374,14 +507,20 @@ function sendValidationError(
 */
 
 app.get(
+
     '/',
-    (req, res) => {
+
+    (
+        _req,
+        res
+    ) => {
 
         res.send(
             'City Explorer API'
         );
 
     }
+
 );
 
 
@@ -392,13 +531,22 @@ app.get(
 */
 
 app.get(
+
     '/api/places',
 
     asyncHandler(
+
         async (
             req,
             res
         ) => {
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Validate query
+            |--------------------------------------------------------------------------
+            */
 
             const validation =
                 placesQuerySchema
@@ -412,9 +560,13 @@ app.get(
             ) {
 
                 sendValidationError(
+
                     res,
+
                     validation.error
+
                 );
+
 
                 return;
 
@@ -422,31 +574,82 @@ app.get(
 
 
             const {
+
                 category,
+
                 south,
+
                 west,
+
                 north,
+
                 east
+
             } =
                 validation.data;
 
 
             req.log.info(
+
                 {
-                    category
+
+                    category,
+
+                    bounds: {
+
+                        south,
+
+                        west,
+
+                        north,
+
+                        east
+
+                    }
+
                 },
+
                 'Searching for places'
+
             );
 
 
+            /*
+            |--------------------------------------------------------------------------
+            | Fetch places
+            |--------------------------------------------------------------------------
+            */
+
             const places =
                 await getPlaces(
+
                     category,
+
                     south,
+
                     west,
+
                     north,
+
                     east
+
                 );
+
+
+            req.log.info(
+
+                {
+
+                    category,
+
+                    placeCount:
+                        places.length
+
+                },
+
+                'Places found'
+
+            );
 
 
             res.json(
@@ -454,7 +657,9 @@ app.get(
             );
 
         }
+
     )
+
 );
 
 
@@ -465,13 +670,22 @@ app.get(
 */
 
 app.post(
+
     '/api/route',
 
     asyncHandler(
+
         async (
             req,
             res
         ) => {
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Validate request body
+            |--------------------------------------------------------------------------
+            */
 
             const validation =
                 routeRequestSchema
@@ -485,9 +699,13 @@ app.post(
             ) {
 
                 sendValidationError(
+
                     res,
+
                     validation.error
+
                 );
+
 
                 return;
 
@@ -495,22 +713,36 @@ app.post(
 
 
             const {
+
                 places,
+
                 optimise
+
             } =
                 validation.data;
 
 
             req.log.info(
+
                 {
+
                     placeCount:
                         places.length,
 
                     optimise
+
                 },
+
                 'Planning route'
+
             );
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Determine route order
+            |--------------------------------------------------------------------------
+            */
 
             let routePlaces =
                 places;
@@ -526,24 +758,38 @@ app.post(
 
                 routePlaces =
                     optimiseRoute(
+
                         places,
+
                         distances
+
                     );
 
 
                 req.log.info(
+
                     {
+
                         placeOrder:
                             routePlaces.map(
                                 place =>
                                     place.id
                             )
+
                     },
+
                     'Route optimised'
+
                 );
 
             }
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | Request route geometry
+            |--------------------------------------------------------------------------
+            */
 
             const route =
                 await getRoute(
@@ -556,7 +802,9 @@ app.post(
             );
 
         }
+
     )
+
 );
 
 
@@ -567,19 +815,25 @@ app.post(
 */
 
 app.use(
+
     (
-        req,
+        _req,
         res
     ) => {
 
-        res.status(404).json({
+        res
+            .status(
+                404
+            )
+            .json({
 
-            error:
-                'Endpoint not found'
+                error:
+                    'Endpoint not found'
 
-        });
+            });
 
     }
+
 );
 
 
@@ -590,41 +844,65 @@ app.use(
 */
 
 app.use(
+
     (
+
         error: unknown,
+
         req: Request,
+
         res: Response,
+
         _next: NextFunction
+
     ) => {
 
+
         req.log.error(
+
             {
-                err: error
+
+                err:
+                    error
+
             },
+
             'Request failed'
+
         );
 
 
         /*
+        |--------------------------------------------------------------------------
         | Invalid JSON
+        |--------------------------------------------------------------------------
         */
 
         if (
+
             error instanceof SyntaxError
+
             &&
+
             (
                 error as {
                     status?: number
                 }
             ).status === 400
+
         ) {
 
-            res.status(400).json({
+            res
+                .status(
+                    400
+                )
+                .json({
 
-                error:
-                    'Invalid JSON body'
+                    error:
+                        'Invalid JSON body'
 
-            });
+                });
+
 
             return;
 
@@ -632,27 +910,40 @@ app.use(
 
 
         /*
+        |--------------------------------------------------------------------------
         | External API timeout
+        |--------------------------------------------------------------------------
         */
 
         if (
+
             error instanceof Error
+
             &&
+
             (
                 error.name ===
                     'TimeoutError'
+
                 ||
+
                 error.name ===
                     'AbortError'
             )
+
         ) {
 
-            res.status(504).json({
+            res
+                .status(
+                    504
+                )
+                .json({
 
-                error:
-                    'External service timed out'
+                    error:
+                        'External service timed out'
 
-            });
+                });
+
 
             return;
 
@@ -660,22 +951,33 @@ app.use(
 
 
         /*
-        | External service failed
+        |--------------------------------------------------------------------------
+        | External API failure
+        |--------------------------------------------------------------------------
         */
 
         if (
+
             error instanceof Error
+
             &&
+
             error.name ===
                 'ExternalServiceError'
+
         ) {
 
-            res.status(502).json({
+            res
+                .status(
+                    502
+                )
+                .json({
 
-                error:
-                    'External service unavailable'
+                    error:
+                        'External service unavailable'
 
-            });
+                });
+
 
             return;
 
@@ -683,17 +985,24 @@ app.use(
 
 
         /*
-        | Anything unexpected
+        |--------------------------------------------------------------------------
+        | Unexpected error
+        |--------------------------------------------------------------------------
         */
 
-        res.status(500).json({
+        res
+            .status(
+                500
+            )
+            .json({
 
-            error:
-                'Internal server error'
+                error:
+                    'Internal server error'
 
-        });
+            });
 
     }
+
 );
 
 
