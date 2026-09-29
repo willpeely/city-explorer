@@ -3,7 +3,6 @@ import {
     useMemo,
     useState
 } from 'react';
-
 import {
     MapContainer,
     Marker,
@@ -12,32 +11,23 @@ import {
     TileLayer,
     useMap
 } from 'react-leaflet';
-
 import type { Map as LeafletMap } from 'leaflet';
-
 import { categories } from '../../../shared/data/categories';
-
 import 'leaflet/dist/leaflet.css';
 import './Map.css';
-
 import L from 'leaflet';
-
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
 const defaultMarkerIcon = L.icon({
     iconUrl: markerIcon,
     iconRetinaUrl: markerIcon2x,
     shadowUrl: markerShadow,
-
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-
     shadowSize: [41, 41]
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -49,19 +39,12 @@ const API_URL = (
     import.meta.env.VITE_API_URL
     ?? 'http://localhost:3000'
 ).replace(/\/$/, '');
-
-
 const MAX_TRIP_PLACES = 20;
-
-
 const DEFAULT_MAP_CENTER: [number, number] = [
     54.0722,
     -1.9975
 ];
-
-
 const DEFAULT_MAP_ZOOM = 19;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -76,26 +59,19 @@ type Place = {
     lon: number;
     category: string;
 };
-
-
 type RoutePoint = [
     number,
     number
 ];
-
-
 type RouteInfo = {
     distance: number;
     duration: number;
 };
-
-
 type RouteApiResponse = {
     features: Array<{
         properties: {
             summary: RouteInfo;
         };
-
         geometry: {
             coordinates: Array<[
                 number,
@@ -104,12 +80,14 @@ type RouteApiResponse = {
         };
     }>;
 };
-
-
 type ApiErrorResponse = {
     error?: string;
 };
-
+type CitySearchResult = {
+    name: string;
+    lat: number;
+    lon: number;
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -131,62 +109,175 @@ async function getApiErrorMessage(
     response: Response,
     fallbackMessage: string
 ): Promise<string> {
-
     try {
-
         const data =
             await response.json() as ApiErrorResponse;
-
-
         return (
             data.error
             ?? fallbackMessage
         );
-
     } catch {
-
         return fallbackMessage;
-
     }
-
 }
-
-
 async function fetchJson<T>(
     url: string,
     options: RequestInit | undefined,
     fallbackError: string
 ): Promise<T> {
-
     const response =
         await fetch(
             url,
             options
         );
-
-
     if (!response.ok) {
-
         const message =
             await getApiErrorMessage(
                 response,
                 fallbackError
             );
-
-
         throw new Error(message);
-
     }
-
-
     return await response.json() as T;
-
 }
-
 
 /*
 |--------------------------------------------------------------------------
-| Search button
+| City search
+|--------------------------------------------------------------------------
+*/
+
+type CitySearchProps = {
+    onCityFound: () => void;
+};
+function CitySearch({
+    onCityFound
+}: CitySearchProps) {
+    const map = useMap();
+    const [
+        query,
+        setQuery
+    ] = useState('');
+    const [
+        loading,
+        setLoading
+    ] = useState(false);
+    const [
+        error,
+        setError
+    ] = useState<string | null>(null);
+    async function searchCity() {
+        const trimmedQuery =
+            query.trim();
+        if (
+            trimmedQuery.length < 2
+            || loading
+        ) {
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            const params =
+                new URLSearchParams({
+                    query: trimmedQuery
+                });
+            const city =
+                await fetchJson<CitySearchResult>(
+                    `${API_URL}/api/geocode?${params}`,
+                    undefined,
+                    'Failed to find city'
+                );
+            onCityFound();
+            map.flyTo(
+                [
+                    city.lat,
+                    city.lon
+                ],
+                13,
+                {
+                    animate: true,
+                    duration: 0.8
+                }
+            );
+        } catch (searchError) {
+            const message =
+                searchError instanceof Error
+                    ? searchError.message
+                    : 'Failed to find city';
+            setError(message);
+        } finally {
+            setLoading(false);
+        }
+    }
+    return (
+        <form
+            className="city-search-control leaflet-control"
+            onSubmit={event => {
+                event.preventDefault();
+                void searchCity();
+            }}
+            onMouseDown={event => {
+                event.stopPropagation();
+            }}
+            onClick={event => {
+                event.stopPropagation();
+            }}
+            onDoubleClick={event => {
+                event.stopPropagation();
+            }}
+        >
+            <label
+                className="sr-only"
+                htmlFor="city-search-input"
+            >
+                Search for a city
+            </label>
+            <div className="city-search-row">
+                <input
+                    id="city-search-input"
+                    type="search"
+                    value={query}
+                    onChange={event => {
+                        setQuery(
+                            event.target.value
+                        );
+                    }}
+                    placeholder="Search a city..."
+                    autoComplete="off"
+                    disabled={loading}
+                />
+                <button
+                    type="submit"
+                    disabled={
+                        loading
+                        || query.trim().length < 2
+                    }
+                >
+                    {
+                        loading
+                            ? 'Searching...'
+                            : 'Go'
+                    }
+                </button>
+            </div>
+            {
+                error && (
+                    <p
+                        className="city-search-error"
+                        role="alert"
+                    >
+                        {error}
+                    </p>
+                )
+            }
+        </form>
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Search this area button
 |--------------------------------------------------------------------------
 */
 
@@ -194,21 +285,14 @@ type FindPlacesButtonProps = {
     onFind: (
         map: LeafletMap
     ) => Promise<void>;
-
     loading: boolean;
 };
-
-
 function FindPlacesButton({
     onFind,
     loading
 }: FindPlacesButtonProps) {
-
     const map = useMap();
-
-
     return (
-
         <button
             type="button"
             className="find-places-button"
@@ -217,19 +301,14 @@ function FindPlacesButton({
             }}
             disabled={loading}
         >
-
             {
                 loading
                     ? 'Searching...'
                     : 'Search this area'
             }
-
         </button>
-
     );
-
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -240,22 +319,14 @@ function FindPlacesButton({
 type RouteFitterProps = {
     route: RoutePoint[];
 };
-
-
 function RouteFitter({
     route
 }: RouteFitterProps) {
-
     const map = useMap();
-
-
     useEffect(() => {
-
         if (route.length < 2) {
             return;
         }
-
-
         map.fitBounds(
             route,
             {
@@ -265,17 +336,12 @@ function RouteFitter({
                 ]
             }
         );
-
     }, [
         map,
         route
     ]);
-
-
     return null;
-
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -295,61 +361,42 @@ function Map() {
         places,
         setPlaces
     ] = useState<Place[]>([]);
-
-
     const [
         trip,
         setTrip
     ] = useState<Place[]>([]);
-
-
     const [
         route,
         setRoute
     ] = useState<RoutePoint[]>([]);
-
-
     const [
         routeInfo,
         setRouteInfo
     ] = useState<RouteInfo | null>(null);
-
-
     const [
         category,
         setCategory
     ] = useState('cafe');
-
-
     const [
         optimise,
         setOptimise
     ] = useState(false);
-
-
     const [
         placesLoading,
         setPlacesLoading
     ] = useState(false);
-
-
     const [
         routeLoading,
         setRouteLoading
     ] = useState(false);
-
-
     const [
         placesError,
         setPlacesError
     ] = useState<string | null>(null);
-
-
     const [
         routeError,
         setRouteError
     ] = useState<string | null>(null);
-
 
     /*
     |--------------------------------------------------------------------------
@@ -362,17 +409,13 @@ function Map() {
     */
 
     const tripPlaceIds = useMemo(
-
         () => new Set(
             trip.map(
                 place => place.id
             )
         ),
-
         [trip]
-
     );
-
 
     /*
     | Places in the trip should remain visible even after searching for
@@ -389,11 +432,8 @@ function Map() {
         */
 
         if (route.length > 0) {
-
             return trip;
-
         }
-
 
         /*
         | Before planning a route, show all search results
@@ -402,42 +442,28 @@ function Map() {
 
         const markersById =
             new globalThis.Map<number, Place>();
-
-
         for (const place of places) {
-
             markersById.set(
                 place.id,
                 place
             );
-
         }
-
-
         for (const place of trip) {
-
             markersById.set(
                 place.id,
                 place
             );
-
         }
-
-
         return Array.from(
             markersById.values()
         );
-
     }, [
         places,
         trip,
         route
     ]);
-
-
     const tripIsFull =
         trip.length >= MAX_TRIP_PLACES;
-
 
     /*
     |--------------------------------------------------------------------------
@@ -446,15 +472,21 @@ function Map() {
     */
 
     function clearRoute() {
-
         setRoute([]);
-
         setRouteInfo(null);
-
         setRouteError(null);
-
     }
+    function handleCityFound() {
 
+        /*
+        | Search results belong to the previous map area.
+        | Keep the user's trip, but clear stale results and route geometry.
+        */
+
+        setPlaces([]);
+        setPlacesError(null);
+        clearRoute();
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -465,18 +497,14 @@ function Map() {
     function selectCategory(
         newCategory: string
     ) {
-
         if (
             newCategory === category
         ) {
             return;
         }
-
-
         setCategory(
             newCategory
         );
-
 
         /*
         | Existing search results belong to the old category,
@@ -484,11 +512,8 @@ function Map() {
         */
 
         setPlaces([]);
-
         setPlacesError(null);
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -499,83 +524,51 @@ function Map() {
     async function loadPlaces(
         map: LeafletMap
     ) {
-
         if (placesLoading) {
             return;
         }
-
-
         setPlacesLoading(true);
-
         setPlacesError(null);
-
-
         try {
-
             const bounds =
                 map.getBounds();
-
-
             const params =
                 new URLSearchParams({
-
                     category,
-
                     south:
                         bounds
                             .getSouth()
                             .toString(),
-
                     west:
                         bounds
                             .getWest()
                             .toString(),
-
                     north:
                         bounds
                             .getNorth()
                             .toString(),
-
                     east:
                         bounds
                             .getEast()
                             .toString()
-
                 });
-
-
             const data =
                 await fetchJson<Place[]>(
-
                     `${API_URL}/api/places?${params}`,
-
                     undefined,
-
                     'Failed to load places'
-
                 );
-
-
             setPlaces(data);
-
         } catch (error) {
-
             const message =
                 error instanceof Error
                     ? error.message
                     : 'Failed to load places';
-
-
             setPlacesError(message);
-
         } finally {
-
             setPlacesLoading(false);
-
         }
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -586,27 +579,20 @@ function Map() {
     function addToTrip(
         place: Place
     ) {
-
         if (
             tripPlaceIds.has(place.id)
             || tripIsFull
         ) {
             return;
         }
-
-
         clearRoute();
-
-
         setTrip(
             currentTrip => [
                 ...currentTrip,
                 place
             ]
         );
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -617,10 +603,7 @@ function Map() {
     function removeFromTrip(
         placeId: number
     ) {
-
         clearRoute();
-
-
         setTrip(
             currentTrip =>
                 currentTrip.filter(
@@ -628,9 +611,7 @@ function Map() {
                         place.id !== placeId
                 )
         );
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -646,7 +627,6 @@ function Map() {
         fromIndex: number,
         toIndex: number
     ) {
-
         if (
             toIndex < 0
             || toIndex >= trip.length
@@ -654,19 +634,12 @@ function Map() {
         ) {
             return;
         }
-
-
         clearRoute();
-
-
         setTrip(
             currentTrip => {
-
                 const updatedTrip = [
                     ...currentTrip
                 ];
-
-
                 [
                     updatedTrip[fromIndex],
                     updatedTrip[toIndex]
@@ -674,15 +647,10 @@ function Map() {
                     updatedTrip[toIndex],
                     updatedTrip[fromIndex]
                 ];
-
-
                 return updatedTrip;
-
             }
         );
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -691,13 +659,9 @@ function Map() {
     */
 
     function clearTrip() {
-
         setTrip([]);
-
         clearRoute();
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -706,71 +670,47 @@ function Map() {
     */
 
     async function planRoute() {
-
         if (
             trip.length < 2
             || routeLoading
         ) {
             return;
         }
-
-
         setRouteLoading(true);
-
         setRouteError(null);
-
-
         try {
-
             const data =
                 await fetchJson<RouteApiResponse>(
-
                     `${API_URL}/api/route`,
-
                     {
                         method: 'POST',
-
                         headers: {
                             'Content-Type':
                                 'application/json'
                         },
-
                         body: JSON.stringify({
                             places: trip,
                             optimise
                         })
                     },
-
                     'Failed to generate route'
-
                 );
-
-
             const feature =
                 data.features[0];
-
-
             if (!feature) {
-
                 throw new Error(
                     'Routing service returned no route'
                 );
-
             }
-
-
             const {
                 distance,
                 duration
             } =
                 feature.properties.summary;
-
-
             setRouteInfo({
                 distance,
                 duration
             });
-
 
             /*
             | OpenRouteService coordinates:
@@ -788,40 +728,25 @@ function Map() {
                         lon,
                         lat
                     ]): RoutePoint => [
-
                         lat,
                         lon
-
                     ]
                 );
-
-
             setRoute(
                 leafletRoute
             );
-
         } catch (error) {
-
             const message =
                 error instanceof Error
                     ? error.message
                     : 'Failed to generate route';
-
-
             setRoute([]);
-
             setRouteInfo(null);
-
             setRouteError(message);
-
         } finally {
-
             setRouteLoading(false);
-
         }
-
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -830,21 +755,14 @@ function Map() {
     */
 
     return (
-
         <div className="map-wrapper">
-
-
             {/* ------------------------------------------------------------
                 Categories
             ------------------------------------------------------------- */}
-
             <aside className="map-controls">
-
                 <h2>
                     Categories
                 </h2>
-
-
                 {
                     Object.entries(
                         categories
@@ -853,107 +771,79 @@ function Map() {
                             groupKey,
                             group
                         ]) => (
-
                             <section
                                 key={groupKey}
                                 className="category-group"
                             >
-
                                 <h3 className="category-title">
                                     {group.label}
                                 </h3>
-
-
                                 <div className="category-buttons">
-
                                     {
                                         group.places.map(
                                             place => (
-
                                                 <button
                                                     key={place.value}
                                                     type="button"
-
                                                     className={
                                                         category === place.value
                                                             ? 'category-button selected'
                                                             : 'category-button'
                                                     }
-
                                                     onClick={() =>
                                                         selectCategory(
                                                             place.value
                                                         )
                                                     }
                                                 >
-
                                                     {place.label}
-
                                                 </button>
-
                                             )
                                         )
                                     }
-
                                 </div>
-
                             </section>
-
                         )
                     )
                 }
-
-
                 {
                     placesError && (
-
                         <p
                             className="error-message"
                             role="alert"
                         >
                             {placesError}
                         </p>
-
                     )
                 }
-
             </aside>
-
-
             {/* ------------------------------------------------------------
                 Map
             ------------------------------------------------------------- */}
-
             <MapContainer
                 className="map"
                 center={DEFAULT_MAP_CENTER}
                 zoom={DEFAULT_MAP_ZOOM}
             >
-
                 <TileLayer
                     attribution="&copy; OpenStreetMap contributors"
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-
-
+                <CitySearch
+                    onCityFound={handleCityFound}
+                />
                 <FindPlacesButton
                     onFind={loadPlaces}
                     loading={placesLoading}
                 />
-
-
                 {
                     markers.map(
                         place => {
-
                             const alreadyAdded =
                                 tripPlaceIds.has(
                                     place.id
                                 );
-
-
                             return (
-
                                 <Marker
                                     key={place.id}
                                     position={[
@@ -962,34 +852,25 @@ function Map() {
                                     ]}
                                     icon={defaultMarkerIcon}
                                 >
-
                                     <Popup>
-
                                         <strong>
                                             {place.name}
                                         </strong>
-
                                         <br />
-
                                         <small>
                                             {place.category}
                                         </small>
-
                                         <br />
-
                                         <button
                                             type="button"
-
                                             onClick={() =>
                                                 addToTrip(place)
                                             }
-
                                             disabled={
                                                 alreadyAdded
                                                 || tripIsFull
                                             }
                                         >
-
                                             {
                                                 alreadyAdded
                                                     ? 'Added to trip'
@@ -997,55 +878,36 @@ function Map() {
                                                         ? 'Trip full'
                                                         : 'Add to trip'
                                             }
-
                                         </button>
-
                                     </Popup>
-
                                 </Marker>
-
                             );
-
                         }
                     )
                 }
-
-
                 {
                     route.length > 0 && (
-
                         <>
                             <Polyline
                                 positions={route}
                             />
-
                             <RouteFitter
                                 route={route}
                             />
                         </>
-
                     )
                 }
-
             </MapContainer>
-
-
             {/* ------------------------------------------------------------
                 Trip panel
             ------------------------------------------------------------- */}
-
             <aside className="trip-panel">
-
                 <div className="trip-panel-header">
-
                     <h2>
                         Your Trip
                     </h2>
-
-
                     {
                         trip.length > 0 && (
-
                             <button
                                 type="button"
                                 onClick={clearTrip}
@@ -1053,71 +915,49 @@ function Map() {
                             >
                                 Clear
                             </button>
-
                         )
                     }
-
                 </div>
-
-
                 {
                     trip.length === 0
                         ? (
-
                             <p>
                                 Add places to your trip to get started.
                             </p>
-
                         )
                         : (
-
                             <div className="trip-list">
-
                                 {
                                     trip.map(
                                         (
                                             place,
                                             index
                                         ) => (
-
                                             <div
                                                 key={place.id}
                                                 className="trip-place"
                                             >
-
                                                 <div className="trip-place-info">
-
                                                     <strong>
-
                                                         {index + 1}.{' '}
                                                         {place.name}
-
                                                     </strong>
-
-
                                                     <small>
                                                         {place.category}
                                                     </small>
-
                                                 </div>
-
-
                                                 <div className="trip-place-actions">
-
                                                     <button
                                                         type="button"
-
                                                         aria-label={
                                                             `Move ${place.name} up`
                                                         }
-
                                                         onClick={() =>
                                                             moveTripPlace(
                                                                 index,
                                                                 index - 1
                                                             )
                                                         }
-
                                                         disabled={
                                                             index === 0
                                                             || routeLoading
@@ -1125,22 +965,17 @@ function Map() {
                                                     >
                                                         ↑
                                                     </button>
-
-
                                                     <button
                                                         type="button"
-
                                                         aria-label={
                                                             `Move ${place.name} down`
                                                         }
-
                                                         onClick={() =>
                                                             moveTripPlace(
                                                                 index,
                                                                 index + 1
                                                             )
                                                         }
-
                                                         disabled={
                                                             index === trip.length - 1
                                                             || routeLoading
@@ -1148,193 +983,126 @@ function Map() {
                                                     >
                                                         ↓
                                                     </button>
-
-
                                                     <button
                                                         type="button"
-
                                                         onClick={() =>
                                                             removeFromTrip(
                                                                 place.id
                                                             )
                                                         }
-
                                                         disabled={
                                                             routeLoading
                                                         }
                                                     >
                                                         Remove
                                                     </button>
-
                                                 </div>
-
                                             </div>
-
                                         )
                                     )
                                 }
-
                             </div>
-
                         )
                 }
-
-
                 {
                     trip.length > 0 && (
-
                         <p className="trip-count">
-
                             {trip.length}
                             {' / '}
                             {MAX_TRIP_PLACES}
                             {' places selected'}
-
                         </p>
-
                     )
                 }
-
-
                 {
                     tripIsFull && (
-
                         <p
                             className="info-message"
                             role="status"
                         >
                             Maximum of {MAX_TRIP_PLACES} places reached.
                         </p>
-
                     )
                 }
-
-
                 <fieldset className="route-options">
-
                     <legend>
                         Route order
                     </legend>
-
-
                     <label>
-
                         <input
                             type="radio"
                             name="route-mode"
-
                             checked={
                                 !optimise
                             }
-
                             onChange={() => {
-
                                 setOptimise(false);
-
                                 clearRoute();
-
                             }}
                         />
-
                         Keep my order
-
                     </label>
-
-
                     <label>
-
                         <input
                             type="radio"
                             name="route-mode"
-
                             checked={
                                 optimise
                             }
-
                             onChange={() => {
-
                                 setOptimise(true);
-
                                 clearRoute();
-
                             }}
                         />
-
                         Optimise route
-
                     </label>
-
                 </fieldset>
-
-
                 {
                     optimise
                     && trip.length >= 2
                     && (
-
                         <p className="info-message">
-
                             The optimiser may visit your selected places
                             in a different order.
-
                         </p>
-
                     )
                 }
-
-
                 {
                     trip.length >= 2 && (
-
                         <button
                             type="button"
                             className="plan-route-button"
-
                             onClick={() => {
                                 void planRoute();
                             }}
-
                             disabled={
                                 routeLoading
                             }
                         >
-
                             {
                                 routeLoading
                                     ? 'Planning route...'
                                     : 'Plan route'
                             }
-
                         </button>
-
                     )
                 }
-
-
                 {
                     routeError && (
-
                         <p
                             className="error-message"
                             role="alert"
                         >
                             {routeError}
                         </p>
-
                     )
                 }
-
-
                 {
                     routeInfo && (
-
                         <div className="route-info">
-
                             <strong>
                                 Route Summary
                             </strong>
-
-
                             <p>
                                 Distance:{' '}
                                 {
@@ -1344,8 +1112,6 @@ function Map() {
                                     ).toFixed(2)
                                 } km
                             </p>
-
-
                             <p>
                                 Walking time:{' '}
                                 {
@@ -1355,19 +1121,11 @@ function Map() {
                                     )
                                 } min
                             </p>
-
                         </div>
-
                     )
                 }
-
             </aside>
-
         </div>
-
     );
-
 }
-
-
 export default Map;

@@ -33,6 +33,9 @@ import {
     optimiseRoute
 } from './services/routeOptimiser.ts';
 
+import {
+    searchCity
+} from './services/geocoding.ts';
 
 /*
 |--------------------------------------------------------------------------
@@ -276,6 +279,18 @@ app.use(
 | Request validation
 |--------------------------------------------------------------------------
 */
+
+const citySearchSchema =
+    z.object({
+
+        query:
+            z.string()
+                .trim()
+                .min(2)
+                .max(100)
+
+    })
+    .strict();
 
 const placesQuerySchema =
     z
@@ -799,6 +814,66 @@ app.post(
 
             res.json(
                 route
+            );
+
+        }
+
+    )
+
+);
+
+app.get(
+
+    '/api/geocode',
+
+    asyncHandler(
+
+        async (
+            req,
+            res
+        ) => {
+
+            const validation =
+                citySearchSchema
+                    .safeParse(
+                        req.query
+                    );
+
+
+            if (!validation.success) {
+
+                sendValidationError(
+                    res,
+                    validation.error
+                );
+
+                return;
+
+            }
+
+
+            const city =
+                await searchCity(
+                    validation.data.query
+                );
+
+
+            if (!city) {
+
+                res.status(404).json({
+
+                    error:
+                        'City not found'
+
+                });
+
+                return;
+
+            }
+
+
+            res.json(
+                city
             );
 
         }
